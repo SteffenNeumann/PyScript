@@ -1,31 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Deal Finder</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+</head>
+<body>
+    <button py-click="find_deals()" id="find-deals" class="py-button">Find Deals</button>
+    <div id="output"></div>
 
-        <title>Current Time</title>
+    <py-config>
+        packages = ["dataclasses"]
+    </py-config>
 
-        <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-        <script defer src="https://pyscript.net/latest/pyscript.js"></script>
-    </head>
+    <py-script>
+        from pyscript import Element
+        from datetime import datetime
+        from dataclasses import dataclass
+        from js import fetch, console, localStorage, indexedDB
+        from js import navigator
 
-    <body>
-        <button py-click="current_time()" id="get-time" class="py-button">Get current time</button>
-        <p id="current-time"></p>
+        @dataclass
+        class Product:
+            name: str
+            target_price: float
 
-        <py-script>
-            from pyscript import Element
-            import datetime
+        PRODUCTS_AND_PRICES = [
+            Product("Crema d'Oro", 11.00),
+            Product("Hafermilch", 0.98),
+            Product("Red Bull", 0.99),
+        ]
 
-            def current_time():
-                now = datetime.datetime.now()
+        def get_location():
+            def success(position):
+                global my_lat, my_long
+                my_lat = position.coords.latitude
+                my_long = position.coords.longitude
+                find_deals()
 
-                # Get paragraph element by id
-                paragraph = Element("current-time")
+            def error():
+                console.log("Unable to retrieve your location")
 
-                # Add current time to the paragraph element
-                paragraph.write(now.strftime("%Y-%m-%d %H:%M:%S"))
-        </py-script>
-    </body>
+            navigator.geolocation.getCurrentPosition(success, error)
+
+        async def init_db():
+            db = await indexedDB.open("DealsDB", 1)
+            db.onupgradeneeded = lambda event: event.target.result.createObjectStore("deals", {"keyPath": "timestamp"})
+
+        async def log_deal(product, store, price, target_price):
+            db = await indexedDB.open("DealsDB", 1)
+            transaction = db.transaction(["deals"], "readwrite")
+            object_store = transaction.objectStore("deals")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await object_store.add({"timestamp": timestamp, "product": product, "store": store, "price": price, "target_price": target_price})
+
+        async def send_email(subject, message):
+            # In a real application, you would use a web-based email API here
+            console.log(f"Email sent: Subject: {subject}, Message: {message}")
+
+        async def fetch_deals(product, target_price):
+            url = f"https://www.meinprospekt.de/webapp/?query={product}&lat={my_lat}&lng={my_long}"
+            response = await fetch(url)
+            html = await response.text()
+            # Here you would parse the HTML and extract the deals
+            # For demonstration, we'll just return a dummy deal
+            return [{"store": "DummyStore", "product": product, "price": target_price - 0.01}]
+
+        async def find_deals():
+            output = Element("output")
+            output.write("Searching for deals...")
+            
+            await init_db()
+
+            for item in PRODUCTS_AND_PRICES:
+                deals = await fetch_deals(item.name, item.target_price)
+                for deal in deals:
+                    if deal['price'] <= item.target_price:
+                        message = f"Deal alert! {deal['store']} offers {deal['product']} for €{deal['price']:.2f}! (Target price: €{item.target_price:.2f})"
+                        await send_email("Deal Alert!", message)
+                        await log_deal(deal['product'], deal['store'], deal['price'], item.target_price)
+                        output.write(message)
+
+        # Start by getting the user's location
+        get_location()
+    </py-script>
+</body>
 </html>
