@@ -8,14 +8,19 @@
     <script defer src="https://pyscript.net/latest/pyscript.js"></script>
 </head>
 <body>
-    <button py-click="find_deals()" id="find-deals" class="py-button">Find Deals</button>
+   
+    <input type="text" id="location-input" placeholder="Enter your location">
+    <button id="convert-location" class="py-button" py-click="convert_location_wrapper()">Convert Location</button>
+    <button id="find-deals" class="py-button" py-click="start_deal_search()">Find Deals</button>
+    
+    
     <div id="output"></div>
 
     <py-config>
         packages = ["dataclasses"]
     </py-config>
-
-    <py-script>
+    <py-script src="./main.py"></py-script>
+    <!-- <py-script>
         from pyscript import Element
         from datetime import datetime
         from dataclasses import dataclass
@@ -71,7 +76,7 @@
         async def find_deals():
             output = Element("output")
             output.write("Searching for deals...")
-            
+            console.log("Unable to retrieve your location")
             await init_db()
 
             for item in PRODUCTS_AND_PRICES:
@@ -85,6 +90,6 @@
 
         # Start by getting the user's location
         get_location()
-    </py-script>
+    </py-script> -->
 </body>
 </html>
