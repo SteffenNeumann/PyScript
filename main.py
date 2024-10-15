@@ -17,9 +17,14 @@ PRODUCTS_AND_PRICES = [
 ]
 
 async def init_db():
-    db = await indexedDB.open("DealsDB", 1)
-    db.onupgradeneeded = lambda event: event.target.result.createObjectStore("deals", {"keyPath": "timestamp"})
-
+    try:
+        db = await indexedDB.open("DealsDB", 1)
+        db.onupgradeneeded = lambda event: event.target.result.createObjectStore("deals", {"keyPath": "timestamp"})
+        return db
+    except Exception as e:
+        console.log(f"Error initializing database: {str(e)}")
+        return None
+    
 async def log_deal(product, store, price, target_price):
     db = await indexedDB.open("DealsDB", 1)
     transaction = db.transaction(["deals"], "readwrite")
@@ -31,12 +36,16 @@ async def send_email(subject, message):
     console.log(f"Email sent: Subject: {subject}, Message: {message}")
 
 async def fetch_deals(product, target_price, lat, lon):
-    url = f"https://www.meinprospekt.de/webapp/?query={product}&lat={lat}&lng={lon}"
-    response = await fetch(url)
-    html = await response.text()
-    # Here you would parse the HTML and extract the deals
-    # For demonstration, we'll just return a dummy deal
-    return [{"store": "DummyStore", "product": product, "price": target_price - 0.01}]
+    try:
+        url = f"https://www.meinprospekt.de/webapp/?query={product}&lat={lat}&lng={lon}"
+        response = await fetch(url)
+        html = await response.text()
+        # Here you would parse the HTML and extract the deals
+        # For demonstration, we'll just return a dummy deal
+        return [{"store": "DummyStore", "product": product, "price": target_price - 0.01}]
+    except Exception as e:
+        console.log(f"Error fetching deals: {str(e)}")
+        return []
 
 async def convert_location():
     location = Element("location-input").value
