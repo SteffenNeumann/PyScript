@@ -12,6 +12,10 @@
     <input type="text" id="location-input" placeholder="Enter your location">
     <button id="convert-location" class="py-button" py-click="convert_location_wrapper()">Convert Location</button>
     <button id="find-deals" class="py-button" py-click="start_deal_search()">Find Deals</button>
+    <div id="deals-output">
+        <h3>Stored Deals:</h3>
+        <ul id="deals-list"></ul>
+    </div>
     
     
     <div id="output"></div>
@@ -19,7 +23,7 @@
     <py-config>
         packages = ["dataclasses"]
     </py-config>
-    <py-script src="./main.py"></py-script>
+    <py-script src="./nextmain.py"></py-script>
     <!-- <py-script>
         from pyscript import Element
         from datetime import datetime
