@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deals DB Test</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+</head>
+<body>
+    <h1>Deals DB Test</h1>
+    <div id="output"></div>
+
+    <input type="text" id="product-input" placeholder="Enter product name">
+    <button id="add-product-btn" py-click="add_product()">Add Product</button>
+    <py-script>
+import asyncio
+from pyodide.http import pyfetch
+from js import document, localforage
+import micropip
+import json
+
+async def setup():
+    await micropip.install('sqlite3')
+    global sqlite3
+    import sqlite3
+    await init_db()
+    await test_db_access()
+
+async def init_db():
+    conn = sqlite3.connect(':memory:')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS deals
+                 (timestamp TEXT, product TEXT, store TEXT, price REAL, target_price REAL)''')
+    conn.commit()
+    
+    # Load existing data from localforage
+    stored_data = await localforage.getItem('deals_data')
+    if stored_data:
+        data = json.loads(stored_data)
+        c.executemany("INSERT INTO deals VALUES (?, ?, ?, ?, ?)", data)
+        conn.commit()
+    
+    conn.close()
+    return True
+
+async def save_to_localforage(conn):
+    c = conn.cursor()
+    c.execute("SELECT * FROM deals")
+    data = c.fetchall()
+    await localforage.setItem('deals_data', json.dumps(data))
+
+async def test_db_access():
+    try:
+        conn = sqlite3.connect(':memory:')
+        cursor = conn.cursor()
+        
+        # Load data from localforage
+        stored_data = await localforage.getItem('deals_data')
+        if stored_data:
+            data = json.loads(stored_data)
+            cursor.executemany("INSERT INTO deals VALUES (?, ?, ?, ?, ?)", data)
+            conn.commit()
+        
+        cursor.execute("SELECT * FROM deals LIMIT 5")
+        rows = cursor.fetchall()
+        
+        if not rows:
+            cursor.execute("INSERT INTO deals VALUES (?, ?, ?, ?, ?)",
+                           ('2023-05-20 12:00:00', 'Sample Product', 'Sample Store', 9.99, 10.99))
+            conn.commit()
+            await save_to_localforage(conn)
+            output = "No deals found. Inserted a sample deal."
+        else:
+            output = "Deals found:\n" + "\n".join([str(row) for row in rows])
+        
+        output = "Successfully connected to deals.db\n" + output
+        
+    except sqlite3.OperationalError as e:
+        output = f"Error: {str(e)}\nMake sure deals.db exists and has a 'deals' table."
+    except Exception as e:
+        output = f"Unexpected error: {str(e)}"
+    finally:
+        if conn:
+            conn.close()
+    
+    document.getElementById("output").innerText = output
+
+async def add_product():
+    product_name = document.getElementById("product-input").value
+    if product_name:
+        conn = sqlite3.connect(':memory:')
+        c = conn.cursor()
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("INSERT INTO deals VALUES (?, ?, ?, ?, ?)",
+                  (timestamp, product_name, 'User Input Store', 0.0, 0.0))
+        conn.commit()
+        await save_to_localforage(conn)
+        conn.close()
+        document.getElementById("output").innerText = f"Added product: {product_name}"
+        await test_db_access()  # Refresh the displayed deals
+    else:
+        document.getElementById("output").innerText = "Please enter a product name."
+
+asyncio.ensure_future(setup())
+    </py-script>
+</html>

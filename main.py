@@ -29,54 +29,6 @@ PRODUCTS_AND_PRICES = [
     Product("Red Bull", 0.99),
 ]
 
-# async def init_db():
-#     db_request = indexedDB.open("DealsDB", 1)
-    
-#     def on_upgrade_needed(event):
-#         db = event.target.result
-#         db.createObjectStore("deals", {"keyPath": "timestamp"})
-    
-#     db_request.onupgradeneeded = on_upgrade_needed
-    
-#     return await Promise.new(lambda resolve, reject: (
-#         setattr(db_request, 'onsuccess', lambda event: resolve(event.target.result)),
-#         setattr(db_request, 'onerror', lambda event: reject(event.target.error))
-#     ))
-
-# Update the log_deal function to use the new init_db
-# async def log_deal(product, store, price, target_price):
-#     db = await init_db()
-#     transaction = db.transaction(["deals"], "readwrite")
-#     object_store = transaction.objectStore("deals")
-#     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#     await object_store.add({"timestamp": timestamp, "product": product, "store": store, "price": price, "target_price": target_price})
-# async def log_deal(product, store, price, target_price):
-#     try:
-#         db = await init_db()
-#         transaction = db.transaction(["deals"], "readwrite")
-#         object_store = transaction.objectStore("deals")
-#         timestamp = datetime.now().isoformat()
-#         deal_data = {
-#             "timestamp": timestamp,
-#             "product": str(product),
-#             "store": str(store),
-#             "price": float(price),
-#             "target_price": float(target_price)
-#         }
-#         console.log("Attempting to add deal data:", json.dumps(deal_data))
-#         await object_store.add(deal_data)
-#         console.log("Deal data added successfully")
-#     except Exception as e:
-#         console.error(f"Error in log_deal: {str(e)}")
-#         console.error(f"Deal data: {json.dumps(deal_data)}")
-#         raise
-# def init_db():
-#     conn = sqlite3.connect('deals.db')
-#     c = conn.cursor()
-#     c.execute('''CREATE TABLE IF NOT EXISTS deals
-#                  (timestamp TEXT, product TEXT, store TEXT, price REAL, target_price REAL)''')
-#     conn.commit()
-#     conn.close()
 async def init_db():
     await setup_sqlite()
     conn = sqlite3.connect('deals.db')
@@ -95,6 +47,24 @@ async def log_deal(product, store, price, target_price):
               (timestamp, product, store, price, target_price))
     conn.commit()
     conn.close()
+    
+async def print_all_deals():
+    console.log("Fetching deals from database...c")
+    conn = sqlite3.connect('deals.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM deals")
+    deals = c.fetchall()
+    conn.close()
+    console.log(f"Deals: {deals}")
+    deals_output = Element("deals-output")
+    deals_output.clear()
+    for deal in deals:
+        deals_output.write(f"Deal: {deal}<br>")
+
+# Add this line to expose the function to PyScript
+print_all_deals_proxy = create_proxy(lambda: asyncio.ensure_future(print_all_deals()))
+globals()['print_all_deals_proxy'] = print_all_deals_proxy
+
 
 async def send_email(subject, message):
     console.log(f"Email sent: Subject: {subject}, Message: {message}")
@@ -139,25 +109,7 @@ async def convert_location():
         Element("output").write("Please enter a location to convert.")
     return None, None
 
-# async def find_deals():
-#     console.log("Finding deals")
-#     lat, lon = await convert_location()
-#     if lat and lon:
-#         console.log(f"Searching deals for coordinates: {lat}, {lon}")
-#         Element("output").write(f"Searching for deals near {lat}, {lon}...")
-#         await init_db()
 
-#         for item in PRODUCTS_AND_PRICES:
-#             deals = await fetch_deals(item.name, item.target_price, lat, lon)
-#             for deal in deals:
-#                 if deal['price'] <= item.target_price:
-#                     message = f"Deal alert! {deal['store']} offers {deal['product']} for €{deal['price']:.2f}! (Target price: €{item.target_price:.2f})"
-#                     await send_email("Deal Alert!", message)
-#                     await log_deal(deal['product'], deal['store'], deal['price'], item.target_price)
-#                     Element("output").write(message)
-#     else:
-#         console.log("Unable to find deals without valid coordinates")
-#         Element("output").write("Please provide a valid location to search for deals.")
 async def find_deals():
     try:
         console.log("Finding deals")
